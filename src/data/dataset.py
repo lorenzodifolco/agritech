@@ -46,13 +46,12 @@ class PlantDiseaseDataset(Dataset):
 
         return image, label
 
-# --- DEFINE THE ALBUMENTATIONS PIPELINE ---
 def get_train_transforms():
     """
     Data augmentation pipeline for training data.
     """
     return A.Compose([
-        A.Resize(224, 224), # Standard size for models like ResNet
+        A.Resize(256, 256), # Standard size for models like ResNet
         A.HorizontalFlip(p=0.5), # 50% chance to flip horizontally
         A.RandomBrightnessContrast(p=0.2), # Simulate different sunlight
         A.Rotate(limit=30, p=0.5), # Simulate different camera angles
@@ -65,7 +64,7 @@ def get_valid_transforms():
     Transforms for validation data (NO augmentation, just resize and normalize).
     """
     return A.Compose([
-        A.Resize(224, 224),
+        A.Resize(256, 256),
         A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
         ToTensorV2()
     ])
