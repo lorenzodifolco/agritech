@@ -1,0 +1,9 @@
+albumentations==2.0.8
+mlflow==3.11.1
+mlflow_skinny==3.11.1
+mlflow_tracing==3.11.1
+opencv_python==4.13.0.92
+opencv_python_headless==4.13.0.92
+torch==2.11.0
+torchvision==0.26.0
+tqdm==4.67.3
