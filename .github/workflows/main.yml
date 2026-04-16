@@ -37,19 +37,3 @@ jobs:
         CUDA_VISIBLE_DEVICES: ""
       run: |
         pytest --cov=src --cov-report=term-missing tests/
-
-    # 5. Report results using CML (Continuous Machine Learning)
-    - name: Setup CML
-      uses: iterative/setup-cml@v1
-    
-    - name: Write CML Report
-      env:
-        REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        echo "## 📊 Test & Coverage Report" > report.md
-        echo "Pipeline executed successfully on $(date)" >> report.md
-        echo "### Coverage Summary" >> report.md
-        echo '```' >> report.md
-        PYTHONPATH=. pytest --cov=src --cov-report=term tests/ >> report.md
-        echo '```' >> report.md
-        cml comment create report.md
