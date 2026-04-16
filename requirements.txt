@@ -7,3 +7,5 @@ opencv_python_headless==4.13.0.92
 torch==2.11.0
 torchvision==0.26.0
 tqdm==4.67.3
+pytest
+pytest-cov

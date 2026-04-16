@@ -4,3 +4,11 @@ __pycache__/
 
 mlruns/
 mlflow.db
+
+# Test and coverage
+.coverage
+.pytest_cache/
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
