@@ -65,18 +65,18 @@ def test_model_architecture_and_robustness():
     output_perturbed = model(perturbed_data)
 
     # Assertions to verify model architecture and robustness
-    # A. Check output shape consistency
+    # Check output shape consistency
     assert output_perturbed.shape == (
         1,
         NUM_CLASSES,
     ), f"Shape mismatch: expected {NUM_CLASSES} classes, got {output_perturbed.shape[1]}"
 
-    # B. Check for numerical stability (No NaNs in output)
+    # Check for numerical stability (No NaNs in output)
     assert not torch.isnan(
         output_perturbed
     ).any(), "Model produced NaN outputs during attack!"
 
-    # C. Verify gradient flow
+    # Verify gradient flow
     assert (
         input_tensor.grad is not None
     ), "Gradients did not flow back to the input tensor!"

@@ -8,37 +8,34 @@ from src.data.dataset import PlantDiseaseDataset, get_train_transforms
 
 # model test
 def test_model_output_shape():
-    """Controlla se il modello sputa fuori 38 classi"""
+    """Check the model produces the correct output shape for a dummy input"""
     model = PlantClassifier(num_classes=38)
     dummy_input = torch.randn(1, 3, 256, 256)
     output = model(dummy_input)
     assert output.shape == (1, 38)
 
 
-# --- TEST DEL DATASET ---
+# dataset test
 def test_dataset_logic(tmp_path):
-    """Verifica che la logica del dataset funzioni (senza caricare 2GB)"""
-    # Creiamo una mini-struttura di test temporanea
+    """Check that the dataset logic works (without loading 2GB)"""
+    # generate a temporary directory structure with a single class and a dummy image
     d = tmp_path / "train" / "apple_scab"
     d.mkdir(parents=True)
-    # Creiamo un'immagine finta (un file vuoto basta per testare l'esistenza)
+    # generate a dummy image file (not a real image, just to test the dataset logic)
     (d / "test_img.jpg").write_text("fake_image_data")
-
-    # In una situazione reale qui useresti un'immagine vera,
-    # ma pytest serve a testare se la classe Dataset inizializza bene i path
     ds = PlantDiseaseDataset(data_dir=str(tmp_path / "train"))
     assert len(ds.classes) == 1
     assert ds.classes[0] == "apple_scab"
 
 
-# --- TEST DELLE TRASFORMAZIONI ---
+# transforms test
 def test_transforms():
-    """Verifica che Albumentations faccia il suo lavoro"""
+    """Check that Albumentations does its job and produces a tensor of the correct shape"""
     transform = get_train_transforms()
-    # Immagine dummy HWC (formato OpenCV)
+    # Dummy image in OpenCV format
     dummy_img = np.random.randint(0, 255, (300, 300, 3), dtype=np.uint8)
 
     transformed = transform(image=dummy_img)["image"]
-    # Verifica che sia diventata un Tensor e sia 256x256
+    # verify that it is a tensor and has the correct shape (256x256)
     assert torch.is_tensor(transformed)
     assert transformed.shape == (3, 256, 256)
