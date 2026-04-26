@@ -1,3 +1,4 @@
+import json
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -139,6 +140,9 @@ def train():
             )
 
         mlflow.pytorch.log_model(pytorch_model=model, name="models")
+        # Save class names alongside the runtime so inference stays in sync with the trained model
+        with open("src/models/class_names.json", "w") as f:
+            json.dump(train_dataset.classes, f, indent=4)
         print("Training complete! Model securely logged.")
 
 

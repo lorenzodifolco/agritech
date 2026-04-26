@@ -4,6 +4,7 @@ __pycache__/
 
 mlruns/
 mlflow.db
+model.pth
 
 # Test and coverage
 .coverage
