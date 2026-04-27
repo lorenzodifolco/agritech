@@ -7,12 +7,21 @@ import mlflow.pytorch
 from mlflow.models import infer_signature
 from tqdm import tqdm
 
-from src.data.dataset import (
-    PlantDiseaseDataset,
-    get_train_transforms,
-    get_valid_transforms,
-)
-from src.models.model import PlantClassifier
+try:
+    from src.data.dataset import (
+        PlantDiseaseDataset,
+        get_train_transforms,
+        get_valid_transforms,
+    )
+    from src.models.model import PlantClassifier
+except ModuleNotFoundError:
+    # Supports running as `python src/train.py` from the repository root.
+    from data.dataset import (
+        PlantDiseaseDataset,
+        get_train_transforms,
+        get_valid_transforms,
+    )
+    from models.model import PlantClassifier
 
 # Configuration
 TRAIN_DIR = "data/raw/train"
@@ -53,6 +62,8 @@ def train():
     sched = torch.optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=MAX_LR, epochs=EPOCHS, steps_per_epoch=len(train_loader)
     )
+
+    mlflow.set_tracking_uri("https://dagshub.com/lorenzodifolco00/agritech.mlflow/")
 
     mlflow.set_experiment("Plant-Disease-Classification")
 
