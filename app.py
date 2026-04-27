@@ -5,9 +5,8 @@ import requests
 import json
 import numpy as np
 
-MLSERVER_URL = os.environ.get("MLSERVER_URL", "http://localhost:8080")
+MLSERVER_URL = os.environ.get("MLSERVER_URL", "http://mlserver:8080")
 
-# Page config
 st.set_page_config(
     page_title="AgriTech | Plant Disease Classifier",
     page_icon="🌿",
@@ -56,7 +55,6 @@ div[data-baseweb="tooltip"], div[role="tooltip"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Hero
 st.markdown("""
 <div class="hero">
     <span class="hero-icon">🌿</span>
@@ -66,53 +64,61 @@ st.markdown("""
 <hr class="divider">
 """, unsafe_allow_html=True)
 
-# Upload
 st.markdown('<p class="section-label">Upload a Leaf Photo</p>', unsafe_allow_html=True)
+
 uploaded_file = st.file_uploader(
-    label="",
-    type=["jpg", "jpeg", "png", "webp", "bmp", "tiff", "gif"]
+    label="Upload a leaf image",
+    type=["jpg", "jpeg", "png", "webp", "bmp", "tiff", "gif"],
+    label_visibility="collapsed"
 )
 
 if uploaded_file:
-    # verify() consumes the stream, so we seek back and re-open for display and inference
     try:
         image = Image.open(uploaded_file)
         image.verify()
+
         uploaded_file.seek(0)
         image = Image.open(uploaded_file).convert("RGB")
-        st.image(image, use_container_width=True)
+
+        st.image(image, width="stretch")
+
     except Exception:
         st.error("Invalid file. Please upload a valid image.")
         st.stop()
 
     with st.spinner("Analysing..."):
         try:
-            # Build the V2 inference request manually (equivalent to NumpyCodec.encode_input)
-            # mlserver cannot be imported on Windows due to signal.SIGQUIT, so we construct the dict directly
             img_array = np.array(image)
             h, w, c = img_array.shape
+
             response = requests.post(
-                MLSERVER_URL + "/v2/models/plant-disease-classifier/infer",
+                f"{MLSERVER_URL}/v2/models/plant-disease-classifier/infer",
                 json={
-                    "inputs": [{
-                        "name": "payload",
-                        "shape": [h, w, c],
-                        "datatype": "UINT8",
-                        "data": img_array.flatten().tolist()
-                    }]
-                }
+                    "inputs": [
+                        {
+                            "name": "payload",
+                            "shape": [h, w, c],
+                            "datatype": "UINT8",
+                            "data": img_array.flatten().tolist()
+                        }
+                    ]
+                },
+                timeout=30
             )
+
+            response.raise_for_status()
             raw = response.json()
+
             if "outputs" not in raw:
-                st.error(f"Could not connect to the API. Make sure the backend is running.")
+                st.error(f"Invalid API response: {raw}")
                 st.stop()
+
             result = json.loads(raw["outputs"][0]["data"][0])
 
             disease = result["disease"].replace("___", " — ").replace("_", " ")
             confidence = result["confidence"]
             top3 = result["top3"]
 
-            # Bar color based on confidence
             if confidence >= 80:
                 bar_color = "linear-gradient(90deg, #4a9e4a, #a8d5a2)"
             elif confidence >= 50:
@@ -121,15 +127,18 @@ if uploaded_file:
                 bar_color = "linear-gradient(90deg, #9e4a4a, #d5a2a2)"
 
             top3_rows = ""
+
             for item in top3:
                 name = item["disease"].replace("___", " — ").replace("_", " ")
                 pct = item["confidence"]
+
                 if pct >= 80:
                     top3_bar_color = "#4a9e4a"
                 elif pct >= 50:
                     top3_bar_color = "#9e8a4a"
                 else:
                     top3_bar_color = "#9e4a4a"
+
                 top3_rows += (
                     '<div class="top3-row">'
                     '<span class="top3-name">' + name + '</span>'
@@ -155,10 +164,13 @@ if uploaded_file:
                 + top3_rows +
                 '</div>'
             )
+
             st.markdown(result_html, unsafe_allow_html=True)
 
-        except Exception as e:
-            st.error("Could not connect to the API. Make sure the backend is running.")
+        except requests.exceptions.RequestException as e:
+            st.error(f"Could not connect to the API. Make sure the backend is running. Details: {e}")
 
-# Footer
+        except Exception as e:
+            st.error(f"Something went wrong while processing the prediction. Details: {e}")
+
 st.markdown('<p class="footer">AgriTech · Plant Disease Detection · Prototype</p>', unsafe_allow_html=True)
