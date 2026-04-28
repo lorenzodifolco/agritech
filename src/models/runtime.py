@@ -25,7 +25,7 @@ class PlantDiseaseRuntime(MLModel):
 
         # --- FIX: robust model loading (PyTorch 2.6 compatible) ---
         loaded = torch.load(
-            "model.pth",
+            "models/model.pth",
             map_location=torch.device("cpu"),
             weights_only=False   # <-- wichtig!
         )
