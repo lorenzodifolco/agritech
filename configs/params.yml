@@ -1,0 +1,10 @@
+data:
+  train_dir: "data/raw/train"
+  valid_dir: "data/raw/valid"
+
+train:
+  batch_size: 32
+  epochs: 5
+  max_lr: 0.01
+  weight_decay: 1e-4
+  grad_clip: 0.1

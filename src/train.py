@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import mlflow
 import mlflow.pytorch
+import yaml
 from mlflow.models import infer_signature
 from tqdm import tqdm
 
@@ -23,14 +24,16 @@ except ModuleNotFoundError:
     )
     from models.model import PlantClassifier
 
-# Configuration
-TRAIN_DIR = "data/raw/train"
-VALID_DIR = "data/raw/valid"
-BATCH_SIZE = 32
-EPOCHS = 5
-MAX_LR = 0.01
-WEIGHT_DECAY = 1e-4
-GRAD_CLIP = 0.1
+with open("configs/params.yml", "r") as f:
+    params = yaml.safe_load(f)
+
+TRAIN_DIR = params["data"]["train_dir"]
+VALID_DIR = params["data"]["valid_dir"]
+BATCH_SIZE = params["train"]["batch_size"]
+EPOCHS = params["train"]["epochs"]
+MAX_LR = params["train"]["max_lr"]
+WEIGHT_DECAY = params["train"]["weight_decay"]
+GRAD_CLIP = params["train"]["grad_clip"]
 
 
 def train():
