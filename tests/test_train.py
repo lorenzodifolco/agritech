@@ -1,7 +1,31 @@
 import pytest
 import torch
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
+import src.train
 from src.train import train
+import importlib
+
+
+def test_yaml_param_casting():
+    """verify that YAML parameters are correctly cast to their appropriate types."""
+    fake_yaml = """
+    data:
+        train_dir: "fake/train"
+        valid_dir: "fake/valid"
+    train:
+        batch_size: "16"
+        epochs: "1"
+        max_lr: "0.005"
+        weight_decay: "1e-4"
+        grad_clip: "0.1"
+    """
+    with patch("builtins.open", mock_open(read_data=fake_yaml)):
+        importlib.reload(src.train)
+        assert isinstance(src.train.BATCH_SIZE, int)
+        assert src.train.BATCH_SIZE == 16
+        assert isinstance(src.train.MAX_LR, float)
+        assert src.train.MAX_LR == 0.005
+        assert isinstance(src.train.WEIGHT_DECAY, float)
 
 
 @patch("src.train.PlantDiseaseDataset")
@@ -48,4 +72,19 @@ def test_train_full_pipeline_smoke(mock_mlflow, mock_dataloader, mock_dataset):
             )
 
     assert pipeline_passed
+
+    # Verify that MLflow logged the correct parameters from YAML
+    mock_mlflow.log_params.assert_called_once_with(
+        {
+            "batch_size": src.train.BATCH_SIZE,
+            "epochs": src.train.EPOCHS,
+            "max_lr": src.train.MAX_LR,
+            "weight_decay": src.train.WEIGHT_DECAY,
+            "grad_clip": src.train.GRAD_CLIP,
+            "scheduler": "OneCycleLR",
+        }
+    )
+
+    # Verify that the model was logged at the end of the process
+    mock_mlflow.pytorch.log_model.assert_called()
     print("\nSuccess: Training pipeline smoke test passed (Coverage increased).")

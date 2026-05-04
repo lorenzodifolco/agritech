@@ -23,18 +23,14 @@ class PlantDiseaseRuntime(MLModel):
         with open(_CLASS_NAMES_PATH) as f:
             self.class_names = json.load(f)
 
-        # --- FIX: robust model loading (PyTorch 2.6 compatible) ---
         loaded = torch.load(
-            "models/model.pth",
-            map_location=torch.device("cpu"),
-            weights_only=False   # <-- wichtig!
+            "models/model.pth", map_location=torch.device("cpu"), weights_only=False
         )
 
         # Case 1: state_dict
         if isinstance(loaded, dict):
             self.model = PlantClassifier(
-                num_classes=len(self.class_names),
-                pretrained=False
+                num_classes=len(self.class_names), pretrained=False
             )
             self.model.load_state_dict(loaded)
 
@@ -45,14 +41,15 @@ class PlantDiseaseRuntime(MLModel):
         self.model.eval()
 
         # Image preprocessing
-        self.transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            )
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
 
         self.ready = True
         return self.ready
@@ -70,7 +67,7 @@ class PlantDiseaseRuntime(MLModel):
         top4 = [
             {
                 "disease": self.class_names[idx.item()],
-                "confidence": round(conf.item() * 100, 2)
+                "confidence": round(conf.item() * 100, 2),
             }
             for conf, idx in zip(top4_confidences[0], top4_indices[0])
         ]
@@ -78,7 +75,7 @@ class PlantDiseaseRuntime(MLModel):
         result = {
             "disease": top4[0]["disease"],
             "confidence": top4[0]["confidence"],
-            "top3": top4[1:]
+            "top3": top4[1:],
         }
 
         return np.array([json.dumps(result)])
