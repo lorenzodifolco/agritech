@@ -4,6 +4,7 @@ __pycache__/
 
 mlruns/
 mlflow.db
+model.pth
 
 # Test and coverage
 .coverage
@@ -12,3 +13,4 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
+/models

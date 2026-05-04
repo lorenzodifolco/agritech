@@ -1,0 +1,18 @@
+services:
+  mlserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    ports:
+      - "8501:8501"
+    environment:
+      - MLSERVER_URL=http://mlserver:8080
+    depends_on:
+      - mlserver

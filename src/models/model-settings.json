@@ -1,0 +1,4 @@
+{
+    "name": "plant-disease-classifier",
+    "implementation": "src.models.runtime.PlantDiseaseRuntime"
+}

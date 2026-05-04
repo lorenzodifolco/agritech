@@ -2,12 +2,12 @@ import torch.nn as nn
 from torchvision import models
 
 class PlantClassifier(nn.Module):
-    def __init__(self, num_classes=38):
+    def __init__(self, num_classes=38, pretrained=True):
         super(PlantClassifier, self).__init__()
-        
-        # Load a pre-trained ResNet18 model (Transfer Learning)
-        # We use weights='DEFAULT' which uses the best available ImageNet weights
-        self.backbone = models.resnet18(weights='DEFAULT')
+
+        # pretrained=True loads ImageNet weights for transfer learning (training only).
+        # Pass pretrained=False at inference time — weights come from model.pth instead.
+        self.backbone = models.resnet18(weights='DEFAULT' if pretrained else None)
         
         # Unfreeze all layers for fine-tuning (you can choose to freeze some layers if you want)
         for param in self.backbone.parameters():
