@@ -6,7 +6,7 @@ COPY requirements-serve.txt .
 RUN pip install --no-cache-dir -r requirements-serve.txt
 
 COPY src/ ./src/
-COPY model.pth .
+COPY models/ ./models/
 RUN mkdir -p plant-disease-classifier && \
     cp src/models/model-settings.json plant-disease-classifier/model-settings.json && \
     rm src/models/model-settings.json

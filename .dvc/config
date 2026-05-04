@@ -1,4 +1,5 @@
 [core]
     remote = origin
-['remote "origin"']
-    url = https://dagshub.com/lorenzodifolco00/agritech.dvc
+[remote "origin"]
+    url = s3://dvc
+    endpointurl = https://dagshub.com/lorenzodifolco00/agritech.s3
