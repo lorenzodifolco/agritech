@@ -27,13 +27,13 @@ except ModuleNotFoundError:
 with open("configs/params.yml", "r") as f:
     params = yaml.safe_load(f)
 
-TRAIN_DIR = params["data"]["train_dir"]
-VALID_DIR = params["data"]["valid_dir"]
-BATCH_SIZE = params["train"]["batch_size"]
-EPOCHS = params["train"]["epochs"]
-MAX_LR = params["train"]["max_lr"]
-WEIGHT_DECAY = params["train"]["weight_decay"]
-GRAD_CLIP = params["train"]["grad_clip"]
+TRAIN_DIR = str(params["data"]["train_dir"])
+VALID_DIR = str(params["data"]["valid_dir"])
+BATCH_SIZE = int(params["train"]["batch_size"])
+EPOCHS = int(params["train"]["epochs"])
+MAX_LR = float(params["train"]["max_lr"])
+WEIGHT_DECAY = float(params["train"]["weight_decay"])
+GRAD_CLIP = float(params["train"]["grad_clip"])
 
 
 def train():
