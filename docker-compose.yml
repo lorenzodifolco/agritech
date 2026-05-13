@@ -9,7 +9,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile.app
+      dockerfile: ui/Dockerfile.app
     ports:
       - "8501:8501"
     environment:
