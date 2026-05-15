@@ -63,64 +63,20 @@ The project follows a modular structure to ensure scalability and separation of 
 The diagram below shows the full MLOps lifecycle — from raw data through training, deployment, drift detection, and back via automated retraining.
 
 ```mermaid
-flowchart LR
-    subgraph DATA["🗄️ Data Layer"]
-        KAGGLE["Kaggle\n87k images"]
-        DVC["DVC + DagsHub\nmodel.pth\ndrift_reference.parquet"]
-        KAGGLE -->|version| DVC
-    end
+flowchart TD
+    DATA["Data<br/>Versioning"]
+    TRAIN["Model<br/>Training"]
+    TRACK["Experiment<br/>Tracking"]
+    DEPLOY["Deployment"]
+    MONITOR["Drift<br/>Detection"]
+    RETRAIN["Retraining<br/>Trigger"]
 
-    subgraph TRAIN["⚙️ Training Pipeline"]
-        DATASET["dataset.py\nAlbumentations"]
-        MODEL["model.py\nResNet-18 · 38 classes"]
-        TRAINER["train.py\nOneCycleLR"]
-        DATASET --> TRAINER
-        MODEL --> TRAINER
-    end
-
-    subgraph MONITOR["📡 Production Monitoring"]
-        EVIDENTLY["Evidently AI\nDataDriftPreset\nZ-test · KS-test"]
-        LOG["logs/predictions.jsonl"]
-        EVIDENTLY -->|append| LOG
-    end
-
-    subgraph RETRAIN["🔁 Retraining Loop"]
-        TRIGGER["retrain_trigger.py\ndrift_alert_rate\nlow_confidence_rate"]
-    end
-
-    subgraph DEPLOY["🚀 Deployment"]
-        MLSERVER["MLServer :8080\nREST inference"]
-        UI["Streamlit UI :8501"]
-        UI -->|HTTP POST| MLSERVER
-    end
-
-    subgraph TRACKING["📊 Experiment Tracking"]
-        MLFLOW["MLflow\nDagsHub"]
-    end
-
-    subgraph CICD["🔧 CI/CD"]
-        GHA["GitHub Actions\npytest · retrain trigger"]
-    end
-
-    subgraph BASELINE["📐 Reference Dataset"]
-        COMPUTE["compute_baseline.py\nbrightness · contrast · blur"]
-    end
-
-    %% Main MLOps cycle
-    DVC -->|dvc pull| DATASET
-    TRAINER -->|log metrics & params| MLFLOW
-    MLFLOW -->|register best model| DEPLOY
-    MLSERVER -->|per prediction| EVIDENTLY
-    LOG -->|rolling window| TRIGGER
-    TRIGGER -->|calls train.train| TRAINER
-    TRIGGER -->|log trigger + Evidently report| MLFLOW
-
-    %% Supporting flows
-    DVC -->|dvc pull artifacts| MLSERVER
-    DATASET -->|reuses image paths| COMPUTE
-    COMPUTE -->|dvc push| DVC
-    GHA -->|on merge to master| DEPLOY
-    GHA -->|daily schedule| TRIGGER
+    DATA -->|pull data & artifacts| TRAIN
+    TRAIN -->|log metrics| TRACK
+    TRACK -->|promote best model| DEPLOY
+    DEPLOY -->|monitor predictions| MONITOR
+    MONITOR -->|drift alert| RETRAIN
+    RETRAIN -->|trigger new run| TRAIN
 ```
 
 ---
