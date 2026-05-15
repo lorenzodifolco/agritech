@@ -97,7 +97,9 @@ Software quality and model reliability are core pillars of this project. We impl
 ## System Demo
 Watch the **Agritech Plant Health Classifier** in action. The video demonstrates the seamless upload process and the near-instant disease diagnosis.
 
-<video src="ui/assets/demo_no.mp4" autoplay loop muted playsinline controls style="max-width:100%;"></video>---
+![System Demo](ui/assets/demo_no.mp4)
+
+---
 
 ## Team Members (Group 12)
 This project was developed by Group 12 for the **Machine Learning and Data in Operation** course:
