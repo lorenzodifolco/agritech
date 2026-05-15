@@ -1,0 +1,14 @@
+flowchart TD
+    DATA["Data Versioning"]
+    TRAIN["Model Training"]
+    TRACK["Experiment Tracking"]
+    DEPLOY["Deployment"]
+    MONITOR["Drift Detection"]
+    RETRAIN["Retraining Trigger"]
+
+    DATA -->|pull data & artifacts| TRAIN
+    TRAIN -->|log metrics| TRACK
+    TRACK -->|promote best model| DEPLOY
+    DEPLOY -->|monitor predictions| MONITOR
+    MONITOR -->|drift alert| RETRAIN
+    RETRAIN -->|trigger new run| TRAIN

@@ -62,22 +62,7 @@ The project follows a modular structure to ensure scalability and separation of 
 
 The diagram below shows the full MLOps lifecycle — from raw data through training, deployment, drift detection, and back via automated retraining.
 
-```mermaid
-flowchart TD
-    DATA["Data<br/>Versioning"]
-    TRAIN["Model<br/>Training"]
-    TRACK["Experiment<br/>Tracking"]
-    DEPLOY["Deployment"]
-    MONITOR["Drift<br/>Detection"]
-    RETRAIN["Retraining<br/>Trigger"]
-
-    DATA -->|pull data & artifacts| TRAIN
-    TRAIN -->|log metrics| TRACK
-    TRACK -->|promote best model| DEPLOY
-    DEPLOY -->|monitor predictions| MONITOR
-    MONITOR -->|drift alert| RETRAIN
-    RETRAIN -->|trigger new run| TRAIN
-```
+![System Architecture](docs/architecture.png)
 
 ---
 
