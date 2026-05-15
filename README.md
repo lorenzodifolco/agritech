@@ -62,74 +62,66 @@ The project follows a modular structure to ensure scalability and separation of 
 
 The diagram below shows the full MLOps lifecycle — from raw data through training, deployment, drift detection, and back via automated retraining.
 
-```plantuml
-@startuml AgritechMLOps
-!theme plain
-skinparam linetype ortho
-skinparam defaultFontSize 12
-skinparam arrowColor #555555
+```mermaid
+flowchart LR
+    subgraph DATA["🗄️ Data Layer"]
+        KAGGLE["Kaggle\n87k images"]
+        DVC["DVC + DagsHub\nmodel.pth\ndrift_reference.parquet"]
+        KAGGLE -->|version| DVC
+    end
 
-rectangle "Data Layer" as DATA #e8f5e9 {
-  component "Kaggle\n87k images" as KAGGLE
-  component "DVC + DagsHub\nmodel.pth\ndrift_reference.parquet" as DVC
-  KAGGLE --> DVC : version
-}
+    subgraph TRAIN["⚙️ Training Pipeline"]
+        DATASET["dataset.py\nAlbumentations"]
+        MODEL["model.py\nResNet-18 · 38 classes"]
+        TRAINER["train.py\nOneCycleLR"]
+        DATASET --> TRAINER
+        MODEL --> TRAINER
+    end
 
-rectangle "Training Pipeline" as TRAIN #e3f2fd {
-  component "dataset.py\nAlbumentations\naugmentation" as DATASET
-  component "model.py\nResNet-18\n38 classes" as MODEL
-  component "train.py\nOneCycleLR\nMLflow logging" as TRAINER
-  DVC --> DATASET : dvc pull
-  DATASET --> TRAINER
-  MODEL --> TRAINER
-}
+    subgraph MONITOR["📡 Production Monitoring"]
+        EVIDENTLY["Evidently AI\nDataDriftPreset\nZ-test · KS-test"]
+        LOG["logs/predictions.jsonl"]
+        EVIDENTLY -->|append| LOG
+    end
 
-rectangle "Reference Dataset" as BASE #e8f5e9 {
-  component "compute_baseline.py\nbrightness / contrast / blur\n→ drift_reference.parquet" as BASELINE
-  DATASET --> BASELINE : reuses image paths
-  BASELINE --> DVC : dvc add & push
-}
+    subgraph RETRAIN["🔁 Retraining Loop"]
+        TRIGGER["retrain_trigger.py\ndrift_alert_rate\nlow_confidence_rate"]
+    end
 
-rectangle "Experiment Tracking" as EXP #fff3e0 {
-  component "MLflow\n(DagsHub)" as MLFLOW
-  TRAINER --> MLFLOW : metrics, params\nloss, accuracy
-}
+    subgraph DEPLOY["🚀 Deployment"]
+        MLSERVER["MLServer :8080\nREST inference"]
+        UI["Streamlit UI :8501"]
+        UI -->|HTTP POST| MLSERVER
+    end
 
-rectangle "CI/CD" as CICD #fce4ec {
-  component "GitHub Actions\npytest --cov=src" as GHA
-}
+    subgraph TRACKING["📊 Experiment Tracking"]
+        MLFLOW["MLflow\nDagsHub"]
+    end
 
-rectangle "Deployment" as DEPLOY #f3e5f5 {
-  component "Docker Compose" as COMPOSE
-  component "MLServer\n:8080" as MLSERVER
-  component "Streamlit UI\n:8501" as UI
-  COMPOSE --> MLSERVER
-  COMPOSE --> UI
-  UI --> MLSERVER : HTTP POST\n/v2/models/infer
-}
+    subgraph CICD["🔧 CI/CD"]
+        GHA["GitHub Actions\npytest · retrain trigger"]
+    end
 
-rectangle "Production Monitoring" as MONITOR #fff8e1 {
-  component "Evidently AI\nDataDriftPreset\n(Z-test / KS-test)" as EVIDENTLY
-  component "logs/predictions.jsonl\nresult + drift report" as LOG
-  MLSERVER --> EVIDENTLY : per prediction\n(rolling buffer)
-  EVIDENTLY --> LOG : append
-}
+    subgraph BASELINE["📐 Reference Dataset"]
+        COMPUTE["compute_baseline.py\nbrightness · contrast · blur"]
+    end
 
-rectangle "Retraining Loop" as RETRAIN #efebe9 {
-  component "retrain_trigger.py\ndrift_alert_rate\nlow_confidence_rate" as TRIGGER
-  LOG --> TRIGGER : rolling window
-  TRIGGER --> TRAINER : calls train.train()
-  TRIGGER --> MLFLOW : logs trigger event\n+ Evidently report
-}
+    %% Main MLOps cycle
+    DVC -->|dvc pull| DATASET
+    TRAINER -->|log metrics & params| MLFLOW
+    MLFLOW -->|register best model| DEPLOY
+    MLSERVER -->|per prediction| EVIDENTLY
+    LOG -->|rolling window| TRIGGER
+    TRIGGER -->|calls train.train| TRAINER
+    TRIGGER -->|log trigger + Evidently report| MLFLOW
 
-MLFLOW --> DEPLOY : register best model
-CICD --> DEPLOY : on merge to master
-DVC --> MLSERVER : dvc pull (model.pth\n+ drift_reference.parquet)
-
-@enduml
+    %% Supporting flows
+    DVC -->|dvc pull artifacts| MLSERVER
+    DATASET -->|reuses image paths| COMPUTE
+    COMPUTE -->|dvc push| DVC
+    GHA -->|on merge to master| DEPLOY
+    GHA -->|daily schedule| TRIGGER
 ```
-
-> **Render tip:** paste the block above into [PlantUML Online](https://www.plantuml.com/plantuml/uml/) or use the VS Code PlantUML extension.
 
 ---
 
