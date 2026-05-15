@@ -39,6 +39,7 @@ Based on the methodologies learned during the course, the project utilizes the f
 | **Data Versioning & Augmentation** | DVC, DagsHub, Albumentations |
 | **Experiment Tracking & Tuning** | MLflow, OneCycleLR Scheduler |
 | **Model Training & Framework** | PyTorch |
+| **Production Monitoring** | Evidently AI |
 | **Testing & CI/CD** | pytest, GitHub Actions |
 | **Deployment & UI** | Docker, MLServer, Streamlit |
 
@@ -46,18 +47,96 @@ Based on the methodologies learned during the course, the project utilizes the f
 
 ## Repository Architecture
 The project follows a modular structure to ensure scalability and separation of responsibilities:
-* **`src/`**: Core of the system, including training, model definitions, and runtime logic.
+
+* **`src/`**: Core of the system, including training, model definitions, runtime logic and monitoring.
 * **`ui/`**: Independent user interface based on Streamlit.
 * **`configs/`**: Centralized parameter management via `params.yml`.
 * **`data/`**: Management of **87,000 images** (~2GB) via DVC metadata.
+* **`models/`**: DVC-tracked artifacts
+* **`logs/`**: Runtime-generated rolling log of predictions and drift reports.
 * **`tests/`**: Automated test suite to ensure production stability.
+
+---
+
+## System Architecture
+
+The diagram below shows the full MLOps lifecycle — from raw data through training, deployment, drift detection, and back via automated retraining.
+
+```plantuml
+@startuml AgritechMLOps
+!theme plain
+skinparam linetype ortho
+skinparam defaultFontSize 12
+skinparam arrowColor #555555
+
+rectangle "Data Layer" as DATA #e8f5e9 {
+  component "Kaggle\n87k images" as KAGGLE
+  component "DVC + DagsHub\nmodel.pth\ndrift_reference.parquet" as DVC
+  KAGGLE --> DVC : version
+}
+
+rectangle "Training Pipeline" as TRAIN #e3f2fd {
+  component "dataset.py\nAlbumentations\naugmentation" as DATASET
+  component "model.py\nResNet-18\n38 classes" as MODEL
+  component "train.py\nOneCycleLR\nMLflow logging" as TRAINER
+  DVC --> DATASET : dvc pull
+  DATASET --> TRAINER
+  MODEL --> TRAINER
+}
+
+rectangle "Reference Dataset" as BASE #e8f5e9 {
+  component "compute_baseline.py\nbrightness / contrast / blur\n→ drift_reference.parquet" as BASELINE
+  DATASET --> BASELINE : reuses image paths
+  BASELINE --> DVC : dvc add & push
+}
+
+rectangle "Experiment Tracking" as EXP #fff3e0 {
+  component "MLflow\n(DagsHub)" as MLFLOW
+  TRAINER --> MLFLOW : metrics, params\nloss, accuracy
+}
+
+rectangle "CI/CD" as CICD #fce4ec {
+  component "GitHub Actions\npytest --cov=src" as GHA
+}
+
+rectangle "Deployment" as DEPLOY #f3e5f5 {
+  component "Docker Compose" as COMPOSE
+  component "MLServer\n:8080" as MLSERVER
+  component "Streamlit UI\n:8501" as UI
+  COMPOSE --> MLSERVER
+  COMPOSE --> UI
+  UI --> MLSERVER : HTTP POST\n/v2/models/infer
+}
+
+rectangle "Production Monitoring" as MONITOR #fff8e1 {
+  component "Evidently AI\nDataDriftPreset\n(Z-test / KS-test)" as EVIDENTLY
+  component "logs/predictions.jsonl\nresult + drift report" as LOG
+  MLSERVER --> EVIDENTLY : per prediction\n(rolling buffer)
+  EVIDENTLY --> LOG : append
+}
+
+rectangle "Retraining Loop" as RETRAIN #efebe9 {
+  component "retrain_trigger.py\ndrift_alert_rate\nlow_confidence_rate" as TRIGGER
+  LOG --> TRIGGER : rolling window
+  TRIGGER --> TRAINER : calls train.train()
+  TRIGGER --> MLFLOW : logs trigger event\n+ Evidently report
+}
+
+MLFLOW --> DEPLOY : register best model
+CICD --> DEPLOY : on merge to master
+DVC --> MLSERVER : dvc pull (model.pth\n+ drift_reference.parquet)
+
+@enduml
+```
+
+> **Render tip:** paste the block above into [PlantUML Online](https://www.plantuml.com/plantuml/uml/) or use the VS Code PlantUML extension.
 
 ---
 
 ## Setup
 
 ### Download Data and Model
-The dataset ("New Plant Diseases Dataset" from Kaggle) and model weights are managed via DVC to keep the Git repository lightweight:
+The dataset ("New Plant Diseases Dataset" from Kaggle), model weights and drift reference are managed via DVC to keep the Git repository lightweight:
 ```bash
 pip install dvc
 dvc pull
@@ -74,17 +153,60 @@ To build and run the services:
 docker compose up --build
 ```
 
+### (Re-)Build the Drift Reference Dataset
+
+Run this once after training data is available, or whenever the training distribution changes:
+
+```bash
+python src/monitoring/compute_baseline.py
+dvc add models/drift_reference.parquet
+dvc push
+```
+
+All parameters are controlled via `configs/params.yml`.
+
+---
+
+## Drift Detection & Post-Production Retraining
+
+### How It Works
+
+Every inference request is evaluated for image quality drift. `runtime.py` feeds the raw image through `EvidentlyDriftDetector`, which maintains a rolling buffer of recent feature vectors and runs Evidently's `DataDriftPreset` (Z-test / KS-test per column) against the training reference dataset. The result is appended to `logs/predictions.jsonl`.
+
+Three image features are tracked against the training-set reference:
+
+| Feature | Measurement | Catches |
+| :--- | :--- | :--- |
+| **Brightness** | Mean pixel value | Seasonal lighting changes |
+| **Contrast** | Pixel std deviation | Overexposed / washed-out images |
+| **Blur** | Laplacian variance | Out-of-focus or low-resolution cameras |
+
+### Triggering Retraining
+
+`retrain_trigger.py` evaluates the rolling window of recent predictions and fires if either threshold is exceeded:
+
+```bash
+# Inspect metrics without retraining
+python src/monitoring/retrain_trigger.py --dry-run
+
+# Live run — triggers train.train() if thresholds exceeded
+python src/monitoring/retrain_trigger.py
+```
+
+When triggered, it:
+1. Calls `train.train()` directly
+2. Logs the trigger reason, drift rate, and low-confidence rate to MLflow.
+3. Uploads the last Evidently drift report as `evidently_drift_report.json` — visible on DagsHub alongside the retrain run.
+
 ---
 
 ## Quality Assurance & CI/CD
-Software quality and model reliability are core pillars of this project. We implement automated checks to ensure the dataset meets professional standards before training begins.
 
-* **Validation & Drift**: The system performs automated checks for class imbalance and train-test leakage across the 87,000 images. It also identifies shifts in image quality or lighting that could compromise model reliability.
-* **Automated Testing**: We use pytest to validate preprocessing logic and API response formats.
-* **Continuous Integration**: GitHub Actions triggers the full test suite on every code push to prevent regressions and ensure only verified models reach production.
-* **Experiment Tracking**: MLflow is utilized to log metrics (Accuracy, Loss), parameters, and the Confusion Matrix for all 38 classes, allowing for seamless comparison between different architectures.
-* **Training Optimization**: We implement the OneCycleLR Scheduler to optimize the learning rate for efficient model convergence. The system also uses early stopping for poor-performing runs to optimize compute time.
-* **Data Augmentation**: A stochastic pipeline using Albumentations (including Brightness, Rotation, and Gaussian Blur) prevents background overfitting and ensures robust generalization in varied lighting and field conditions.
+* **Automated Testing**: pytest validates preprocessing logic, model output shapes, API response formats, and Evidently drift detection behaviour.
+* **Continuous Integration**: GitHub Actions runs the full test suite on every push and pull request to `master`.
+* **Experiment Tracking**: MLflow logs metrics (accuracy, loss, learning rate), hyperparameters, and retraining trigger events for every run on DagsHub.
+* **Training Optimization**: OneCycleLR scheduler for efficient convergence.
+* **Data Augmentation**: Albumentations pipeline (horizontal flip, brightness/contrast, rotation, normalization) for robust generalization across field conditions.
 
 ---
 

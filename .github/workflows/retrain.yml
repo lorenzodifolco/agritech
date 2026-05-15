@@ -1,0 +1,55 @@
+name: Retraining Trigger
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # daily at 06:00 UTC
+  workflow_dispatch:      # allow manual trigger from the Actions tab
+
+jobs:
+  retrain-trigger:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Pull prediction log from DVC
+        env:
+          DAGSHUB_USER: ${{ secrets.DAGSHUB_USER }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          pip install dvc
+          dvc remote modify --local origin auth basic
+          dvc remote modify --local origin user $DAGSHUB_USER
+          dvc remote modify --local origin password $DAGSHUB_TOKEN
+          dvc pull logs/predictions.jsonl || true  # non-fatal if log doesn't exist yet
+
+      - name: Run retraining trigger (dry-run)
+        env:
+          PYTHONPATH: "."
+          MLFLOW_TRACKING_URI: https://dagshub.com/lorenzodifolco00/agritech.mlflow/
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USER }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          python src/monitoring/retrain_trigger.py --dry-run
+
+      - name: Run retraining trigger (live)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          PYTHONPATH: "."
+          MLFLOW_TRACKING_URI: https://dagshub.com/lorenzodifolco00/agritech.mlflow/
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USER }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          python src/monitoring/retrain_trigger.py

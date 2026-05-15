@@ -1,19 +1,22 @@
+import json
 import os
 import sys
-import torch
+
 import numpy as np
+import torch
 from mlserver import MLModel
 from mlserver.codecs import decode_args
-from torchvision import transforms
 from PIL import Image
-import json
+from torchvision import transforms
 
 sys.path.append("/app/src")
 
 from src.models.model import PlantClassifier
+from src.monitoring.drift import EvidentlyDriftDetector
 
-# Resolve path relative to this file
 _CLASS_NAMES_PATH = os.path.join(os.path.dirname(__file__), "class_names.json")
+_BASELINE_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "models", "drift_reference.parquet")
+_LOG_PATH = "logs/predictions.jsonl"
 
 
 class PlantDiseaseRuntime(MLModel):
@@ -51,6 +54,10 @@ class PlantDiseaseRuntime(MLModel):
             ]
         )
 
+        # Load drift detector if baseline exists (graceful fallback if absent)
+        baseline = os.path.normpath(_BASELINE_PATH)
+        self.drift_detector = EvidentlyDriftDetector(baseline) if os.path.exists(baseline) else None
+
         self.ready = True
         return self.ready
 
@@ -78,4 +85,17 @@ class PlantDiseaseRuntime(MLModel):
             "top3": top4[1:],
         }
 
+        if self.drift_detector is not None:
+            result["drift"] = self.drift_detector.check(payload)
+
+        self._log(result)
+
         return np.array([json.dumps(result)])
+
+    def _log(self, result: dict) -> None:
+        try:
+            os.makedirs(os.path.dirname(_LOG_PATH) or ".", exist_ok=True)
+            with open(_LOG_PATH, "a") as f:
+                f.write(json.dumps(result) + "\n")
+        except Exception:
+            pass

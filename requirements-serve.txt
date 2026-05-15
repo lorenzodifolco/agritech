@@ -3,3 +3,4 @@ torchvision==0.26.0
 pillow
 mlserver
 mlserver-mlflow
+evidently==0.4.33

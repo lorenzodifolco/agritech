@@ -8,3 +8,10 @@ train:
   max_lr: 0.01
   weight_decay: 1e-4
   grad_clip: 0.1
+
+drift:
+  baseline_samples_per_class: 100   # images sampled per class for reference dataset
+  confidence_threshold: 0.70         # predictions below this count as low-confidence
+  drift_alert_rate_threshold: 0.20   # fraction of drifted/low-conf predictions that triggers retrain
+  window_size: 100                   # rolling window of recent predictions to evaluate
+  detector_buffer_size: 30           # Evidently current_data batch size (min 5)
